@@ -14,6 +14,7 @@ import br.com.academiadigital.backend.security.handler.JwtAccessDeniedHandler;
 import br.com.academiadigital.backend.security.handler.JwtAuthenticationEntryPoint;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 public class SecurityConfig {
@@ -56,6 +57,33 @@ public SecurityFilterChain securityFilterChain(
 
                            .requestMatchers("/api/v1/usuarios/**")
                         .hasRole("ADMIN")
+                        .requestMatchers(
+        HttpMethod.GET,
+        "/api/v1/cursos/**"
+)
+.hasAnyRole(
+        "ADMIN",
+        "PROFESSOR",
+        "ALUNO"
+)
+
+.requestMatchers(
+        HttpMethod.POST,
+        "/api/v1/cursos/**"
+)
+.hasRole("ADMIN")
+
+.requestMatchers(
+        HttpMethod.PUT,
+        "/api/v1/cursos/**"
+)
+.hasRole("ADMIN")
+
+.requestMatchers(
+        HttpMethod.DELETE,
+        "/api/v1/cursos/**"
+)
+.hasRole("ADMIN")
                             .anyRequest()
                             .authenticated()
             );
