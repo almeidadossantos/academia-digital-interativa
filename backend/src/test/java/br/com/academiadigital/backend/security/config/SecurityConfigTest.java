@@ -36,6 +36,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import br.com.academiadigital.backend.aula.AulaController;
+import br.com.academiadigital.backend.aula.AulaService;
+import br.com.academiadigital.backend.aula.StatusAula;
+import br.com.academiadigital.backend.aula.dto.AulaRequest;
+import br.com.academiadigital.backend.aula.dto.AulaResponse;
+import br.com.academiadigital.backend.aula.dto.AulaUpdateRequest;
 import br.com.academiadigital.backend.curso.CursoController;
 import br.com.academiadigital.backend.curso.CursoService;
 import br.com.academiadigital.backend.curso.NivelCurso;
@@ -59,7 +65,8 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
 @WebMvcTest({
         AuthController.class,
         UsuarioController.class,
-        CursoController.class
+        CursoController.class,
+        AulaController.class
 })
 @AutoConfigureMockMvc
 @ImportAutoConfiguration({
@@ -89,6 +96,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private CursoService cursoService;
+
+    @MockitoBean
+    private AulaService aulaService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -500,6 +510,330 @@ class SecurityConfigTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    void deveRetornar401AoAcessarAulasSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/aulas")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/aulas"));
+    }
+
+    @Test
+    void devePermitirQueAlunoListeAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-aulas",
+                "aluno.aulas@email.com",
+                "ALUNO"
+        );
+
+        when(aulaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(Page.<AulaResponse>empty());
+
+        mockMvc.perform(
+                        get("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-aulas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void devePermitirQueProfessorListeAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-aulas",
+                "professor.aulas@email.com",
+                "PROFESSOR"
+        );
+
+        when(aulaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(Page.<AulaResponse>empty());
+
+        mockMvc.perform(
+                        get("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-aulas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void devePermitirQueAdminListeAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-aulas",
+                "admin.aulas@email.com",
+                "ADMIN"
+        );
+
+        when(aulaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(Page.<AulaResponse>empty());
+
+        mockMvc.perform(
+                        get("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-aulas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoTentarAlterarAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-alteracao-aulas",
+                "aluno.alteracao@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"));
+
+        mockMvc.perform(
+                        put("/api/v1/aulas/{id}", 10L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(
+                        delete("/api/v1/aulas/{id}", 10L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-aulas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void devePermitirQueProfessorGerencieAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-gerencia-aulas",
+                "professor.gerencia@email.com",
+                "PROFESSOR"
+        );
+
+        AulaResponse aulaCriada = criarAulaResponse(
+                10L,
+                "Introdução ao computador",
+                1
+        );
+
+        AulaResponse aulaAtualizada = criarAulaResponse(
+                10L,
+                "Aula atualizada",
+                2
+        );
+
+        when(aulaService.criar(
+                any(AulaRequest.class)
+        )).thenReturn(aulaCriada);
+
+        when(aulaService.atualizar(
+                eq(10L),
+                any(AulaUpdateRequest.class)
+        )).thenReturn(aulaAtualizada);
+
+        doNothing()
+                .when(aulaService)
+                .excluir(10L);
+
+        mockMvc.perform(
+                        post("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(10));
+
+        mockMvc.perform(
+                        put("/api/v1/aulas/{id}", 10L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.titulo")
+                        .value("Aula atualizada"));
+
+        mockMvc.perform(
+                        delete("/api/v1/aulas/{id}", 10L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-aulas"
+                                )
+                )
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void devePermitirQueAdminGerencieAulas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-gerencia-aulas",
+                "admin.gerencia@email.com",
+                "ADMIN"
+        );
+
+        AulaResponse aulaCriada = criarAulaResponse(
+                11L,
+                "Conceitos de informática",
+                1
+        );
+
+        AulaResponse aulaAtualizada = criarAulaResponse(
+                11L,
+                "Conceitos atualizados",
+                2
+        );
+
+        when(aulaService.criar(
+                any(AulaRequest.class)
+        )).thenReturn(aulaCriada);
+
+        when(aulaService.atualizar(
+                eq(11L),
+                any(AulaUpdateRequest.class)
+        )).thenReturn(aulaAtualizada);
+
+        doNothing()
+                .when(aulaService)
+                .excluir(11L);
+
+        mockMvc.perform(
+                        post("/api/v1/aulas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(11));
+
+        mockMvc.perform(
+                        put("/api/v1/aulas/{id}", 11L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-aulas"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(jsonAulaValida())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.titulo")
+                        .value("Conceitos atualizados"));
+
+        mockMvc.perform(
+                        delete("/api/v1/aulas/{id}", 11L)
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-aulas"
+                                )
+                )
+                .andExpect(status().isNoContent());
+    }
+
+    private AulaResponse criarAulaResponse(
+            Long id,
+            String titulo,
+            Integer ordem) {
+
+        AulaResponse response = new AulaResponse();
+
+        response.setId(id);
+        response.setCursoId(1L);
+        response.setCursoTitulo("Informática Básica");
+        response.setTitulo(titulo);
+        response.setDescricao(
+                "Conhecendo os conceitos básicos de informática."
+        );
+        response.setOrdem(ordem);
+        response.setDuracaoMinutos(30);
+        response.setVideoUrl(
+                "https://exemplo.com/videos/aula"
+        );
+        response.setStatus(StatusAula.PUBLICADA);
+
+        return response;
+    }
+
+    private String jsonAulaValida() {
+        return """
+                {
+                  "cursoId": 1,
+                  "titulo": "Introdução ao computador",
+                  "descricao": "Conhecendo os componentes do computador.",
+                  "ordem": 1,
+                  "duracaoMinutos": 30,
+                  "videoUrl": "https://exemplo.com/videos/aula-1",
+                  "status": "PUBLICADA"
+                }
+                """;
+    }
     private CursoResponse criarCursoResponse(String titulo) {
         CursoResponse response = new CursoResponse();
         response.setId(1L);
