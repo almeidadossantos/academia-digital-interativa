@@ -4,10 +4,12 @@ import java.security.Principal;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.academiadigital.backend.progresso.dto.ProgressoAulaResponse;
 import br.com.academiadigital.backend.progresso.dto.ProgressoCursoResponse;
 
 @RestController
@@ -36,4 +38,19 @@ public class ProgressoController {
 
         return ResponseEntity.ok(response);
     }
+    @PostMapping("/aulas/{aulaId}/concluir")
+    public ResponseEntity<ProgressoAulaResponse>
+            concluirAula(
+                    @PathVariable Long aulaId,
+                    Principal principal) {
+
+        ProgressoAulaResponse response =
+                progressoService.concluirAula(
+                        principal.getName(),
+                        aulaId
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
 }

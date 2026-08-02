@@ -56,6 +56,7 @@ import br.com.academiadigital.backend.matricula.MatriculaService;
 import br.com.academiadigital.backend.matricula.dto.MatriculaResponse;
 import br.com.academiadigital.backend.progresso.ProgressoController;
 import br.com.academiadigital.backend.progresso.ProgressoService;
+import br.com.academiadigital.backend.progresso.dto.ProgressoAulaResponse;
 import br.com.academiadigital.backend.progresso.dto.ProgressoCursoResponse;
 import br.com.academiadigital.backend.trilha.TrilhaController;
 import br.com.academiadigital.backend.trilha.TrilhaService;
@@ -1403,6 +1404,171 @@ class SecurityConfigTest {
                 progressoService,
                 never()
         ).buscarProgressoCurso(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar401AoConcluirAulaSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAlunoConcluaAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-concluir-aula",
+                "aluno.conclusao@email.com",
+                "ALUNO"
+        );
+
+        ProgressoAulaResponse response =
+                new ProgressoAulaResponse();
+
+        response.setId(40L);
+        response.setMatriculaId(20L);
+        response.setCursoId(10L);
+        response.setAulaId(30L);
+        response.setConcluida(true);
+
+        when(
+                progressoService.concluirAula(
+                        "aluno.conclusao@email.com",
+                        30L
+                )
+        ).thenReturn(response);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-concluir-aula"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(40))
+                .andExpect(jsonPath("$.matriculaId")
+                        .value(20))
+                .andExpect(jsonPath("$.cursoId")
+                        .value(10))
+                .andExpect(jsonPath("$.aulaId")
+                        .value(30))
+                .andExpect(jsonPath("$.concluida")
+                        .value(true));
+
+        verify(progressoService)
+                .concluirAula(
+                        "aluno.conclusao@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorTentarConcluirAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-concluir-aula",
+                "professor.conclusao@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-concluir-aula"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAdminTentarConcluirAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-concluir-aula",
+                "admin.conclusao@email.com",
+                "ADMIN"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-concluir-aula"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
                 any(),
                 any()
         );

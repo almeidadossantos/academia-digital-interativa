@@ -145,6 +145,48 @@ public class ProgressoService {
         return response;
     }
 
+    @Transactional
+    public ProgressoAulaResponse concluirAula(
+            String email,
+            Long aulaId) {
+
+        Usuario aluno =
+                buscarAlunoAutenticado(email);
+
+        Aula aula =
+                buscarAula(aulaId);
+
+        Matricula matricula =
+                buscarMatriculaDoAluno(
+                        aluno.getId(),
+                        aula.getCurso().getId()
+                );
+
+        ProgressoAula progresso =
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                matricula.getId(),
+                                aulaId
+                        )
+                        .orElseGet(() ->
+                                criarProgressoInicial(
+                                        matricula,
+                                        aula
+                                )
+                        );
+
+        progresso.setConcluida(true);
+
+        ProgressoAula progressoSalvo =
+                progressoAulaRepository.save(
+                        progresso
+                );
+
+        return progressoAulaMapper.toResponse(
+                progressoSalvo
+        );
+    }
+
     private ProgressoAulaResponse obterRespostaDaAula(
             Matricula matricula,
             Aula aula,
@@ -180,6 +222,18 @@ public class ProgressoService {
         progresso.setConcluida(false);
 
         return progresso;
+    }
+
+    private Aula buscarAula(Long aulaId) {
+
+        return aulaRepository
+                .findById(aulaId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Aula não encontrada com ID: "
+                                        + aulaId
+                        )
+                );
     }
 
     private Usuario buscarAlunoAutenticado(

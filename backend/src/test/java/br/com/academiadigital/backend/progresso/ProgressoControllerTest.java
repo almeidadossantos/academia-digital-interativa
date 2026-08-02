@@ -3,6 +3,7 @@ package br.com.academiadigital.backend.progresso;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -156,4 +157,110 @@ class ProgressoControllerTest {
                         99L
                 );
     }
+    @Test
+    void deveConcluirAulaDoAlunoAutenticado()
+            throws Exception {
+
+        ProgressoAulaResponse response =
+                new ProgressoAulaResponse();
+
+        response.setId(40L);
+        response.setMatriculaId(20L);
+        response.setCursoId(10L);
+        response.setCursoTitulo(
+                "Informática Básica"
+        );
+        response.setAulaId(30L);
+        response.setAulaTitulo(
+                "Introdução"
+        );
+        response.setAulaOrdem(1);
+        response.setConcluida(true);
+
+        when(
+                progressoService.concluirAula(
+                        "aluno@email.com",
+                        30L
+                )
+        ).thenReturn(response);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .principal(
+                                        () -> "aluno@email.com"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(40))
+                .andExpect(jsonPath("$.matriculaId")
+                        .value(20))
+                .andExpect(jsonPath("$.cursoId")
+                        .value(10))
+                .andExpect(jsonPath("$.cursoTitulo")
+                        .value("Informática Básica"))
+                .andExpect(jsonPath("$.aulaId")
+                        .value(30))
+                .andExpect(jsonPath("$.aulaTitulo")
+                        .value("Introdução"))
+                .andExpect(jsonPath("$.aulaOrdem")
+                        .value(1))
+                .andExpect(jsonPath("$.concluida")
+                        .value(true));
+
+        verify(progressoService)
+                .concluirAula(
+                        "aluno@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornarNotFoundAoConcluirAulaInexistente()
+            throws Exception {
+
+        when(
+                progressoService.concluirAula(
+                        "aluno@email.com",
+                        999L
+                )
+        ).thenThrow(
+                new ResourceNotFoundException(
+                        "Aula não encontrada com ID: 999"
+                )
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                999L
+                        )
+                                .principal(
+                                        () -> "aluno@email.com"
+                                )
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status")
+                        .value(404))
+                .andExpect(jsonPath("$.error")
+                        .value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value(
+                                "Aula não encontrada com ID: 999"
+                        ))
+                .andExpect(jsonPath("$.path")
+                        .value(
+                                "/api/v1/progressos/aulas/999/concluir"
+                        ));
+
+        verify(progressoService)
+                .concluirAula(
+                        "aluno@email.com",
+                        999L
+                );
+    }
+
 }

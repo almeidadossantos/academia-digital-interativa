@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -12,6 +15,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -21,6 +25,7 @@ import br.com.academiadigital.backend.curso.Curso;
 import br.com.academiadigital.backend.exception.ResourceNotFoundException;
 import br.com.academiadigital.backend.matricula.Matricula;
 import br.com.academiadigital.backend.matricula.MatriculaRepository;
+import br.com.academiadigital.backend.progresso.dto.ProgressoAulaResponse;
 import br.com.academiadigital.backend.progresso.dto.ProgressoCursoResponse;
 import br.com.academiadigital.backend.progresso.mapper.ProgressoAulaMapper;
 import br.com.academiadigital.backend.usuario.Perfil;
@@ -398,6 +403,276 @@ class ProgressoServiceTest {
         assertEquals(
                 "Matrícula não encontrada para o aluno autenticado "
                         + "no curso de ID: 10",
+                excecao.getMessage()
+        );
+    }
+
+    @Test
+    void deveConcluirAulaCriandoProgressoQuandoNaoExistir() {
+        Usuario aluno =
+                criarUsuario(
+                        1L,
+                        Perfil.ALUNO
+                );
+
+        Curso curso =
+                criarCurso(
+                        10L,
+                        "Informática Básica"
+                );
+
+        Matricula matricula =
+                criarMatricula(
+                        20L,
+                        aluno,
+                        curso
+                );
+
+        Aula aula =
+                criarAula(
+                        30L,
+                        curso,
+                        "Introdução",
+                        1
+                );
+
+        when(
+                usuarioRepository
+                        .findByEmailIgnoreCase(
+                                "aluno@email.com"
+                        )
+        ).thenReturn(
+                Optional.of(aluno)
+        );
+
+        when(
+                aulaRepository.findById(30L)
+        ).thenReturn(
+                Optional.of(aula)
+        );
+
+        when(
+                matriculaRepository
+                        .findByAlunoIdAndCursoId(
+                                1L,
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(matricula)
+        );
+
+        when(
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                20L,
+                                30L
+                        )
+        ).thenReturn(
+                Optional.empty()
+        );
+
+        when(
+                progressoAulaRepository.save(
+                        any(ProgressoAula.class)
+                )
+        ).thenAnswer(invocacao -> {
+            ProgressoAula progresso =
+                    invocacao.getArgument(0);
+
+            progresso.setId(40L);
+
+            return progresso;
+        });
+
+        ProgressoAulaResponse response =
+                progressoService.concluirAula(
+                        "aluno@email.com",
+                        30L
+                );
+
+        ArgumentCaptor<ProgressoAula> captor =
+                ArgumentCaptor.forClass(
+                        ProgressoAula.class
+                );
+
+        verify(progressoAulaRepository)
+                .save(captor.capture());
+
+        ProgressoAula progressoSalvo =
+                captor.getValue();
+
+        assertSame(
+                matricula,
+                progressoSalvo.getMatricula()
+        );
+
+        assertSame(
+                aula,
+                progressoSalvo.getAula()
+        );
+
+        assertTrue(
+                progressoSalvo.getConcluida()
+        );
+
+        assertEquals(
+                40L,
+                response.getId()
+        );
+
+        assertEquals(
+                20L,
+                response.getMatriculaId()
+        );
+
+        assertEquals(
+                30L,
+                response.getAulaId()
+        );
+
+        assertTrue(
+                response.getConcluida()
+        );
+    }
+
+    @Test
+    void deveConcluirAulaAtualizandoProgressoExistente() {
+        Usuario aluno =
+                criarUsuario(
+                        1L,
+                        Perfil.ALUNO
+                );
+
+        Curso curso =
+                criarCurso(
+                        10L,
+                        "Informática Básica"
+                );
+
+        Matricula matricula =
+                criarMatricula(
+                        20L,
+                        aluno,
+                        curso
+                );
+
+        Aula aula =
+                criarAula(
+                        30L,
+                        curso,
+                        "Introdução",
+                        1
+                );
+
+        ProgressoAula progressoExistente =
+                criarProgresso(
+                        40L,
+                        matricula,
+                        aula,
+                        false
+                );
+
+        when(
+                usuarioRepository
+                        .findByEmailIgnoreCase(
+                                "aluno@email.com"
+                        )
+        ).thenReturn(
+                Optional.of(aluno)
+        );
+
+        when(
+                aulaRepository.findById(30L)
+        ).thenReturn(
+                Optional.of(aula)
+        );
+
+        when(
+                matriculaRepository
+                        .findByAlunoIdAndCursoId(
+                                1L,
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(matricula)
+        );
+
+        when(
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                20L,
+                                30L
+                        )
+        ).thenReturn(
+                Optional.of(progressoExistente)
+        );
+
+        when(
+                progressoAulaRepository.save(
+                        progressoExistente
+                )
+        ).thenReturn(
+                progressoExistente
+        );
+
+        ProgressoAulaResponse response =
+                progressoService.concluirAula(
+                        "aluno@email.com",
+                        30L
+                );
+
+        assertTrue(
+                progressoExistente.getConcluida()
+        );
+
+        assertEquals(
+                40L,
+                response.getId()
+        );
+
+        assertTrue(
+                response.getConcluida()
+        );
+
+        verify(progressoAulaRepository)
+                .save(progressoExistente);
+    }
+
+    @Test
+    void deveFalharAoConcluirAulaInexistente() {
+        Usuario aluno =
+                criarUsuario(
+                        1L,
+                        Perfil.ALUNO
+                );
+
+        when(
+                usuarioRepository
+                        .findByEmailIgnoreCase(
+                                "aluno@email.com"
+                        )
+        ).thenReturn(
+                Optional.of(aluno)
+        );
+
+        when(
+                aulaRepository.findById(999L)
+        ).thenReturn(
+                Optional.empty()
+        );
+
+        ResourceNotFoundException excecao =
+                assertThrows(
+                        ResourceNotFoundException.class,
+                        () ->
+                                progressoService.concluirAula(
+                                        "aluno@email.com",
+                                        999L
+                                )
+                );
+
+        assertEquals(
+                "Aula não encontrada com ID: 999",
                 excecao.getMessage()
         );
     }
