@@ -123,6 +123,40 @@ public class SecurityConfig {
                         )
 
                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/trilhas/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR",
+                                "ALUNO"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/trilhas/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/v1/trilhas/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/trilhas/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/trilhas/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
                                 "/api/v1/matriculas/**"
                         )
                         .hasRole("ADMIN")
