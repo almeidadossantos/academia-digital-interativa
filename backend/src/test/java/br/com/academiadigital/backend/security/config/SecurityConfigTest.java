@@ -1574,6 +1574,145 @@ class SecurityConfigTest {
         );
     }
 
+    @Test
+    void deveRetornar401AoRemoverConclusaoSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAlunoRemovaConclusaoDaAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-remover-conclusao",
+                "aluno.remocao@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isNoContent());
+
+        verify(progressoService)
+                .removerConclusaoAula(
+                        "aluno.remocao@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorTentarRemoverConclusao()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-remover-conclusao",
+                "professor.remocao@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAdminTentarRemoverConclusao()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-remover-conclusao",
+                "admin.remocao@email.com",
+                "ADMIN"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
+        );
+    }
+
     private CursoResponse criarCursoResponse(String titulo) {
         CursoResponse response = new CursoResponse();
         response.setId(1L);

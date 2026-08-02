@@ -677,6 +677,172 @@ class ProgressoServiceTest {
         );
     }
 
+    @Test
+    void deveRemoverConclusaoDaAula() {
+        Usuario aluno =
+                criarUsuario(
+                        1L,
+                        Perfil.ALUNO
+                );
+
+        Curso curso =
+                criarCurso(
+                        10L,
+                        "Informática Básica"
+                );
+
+        Matricula matricula =
+                criarMatricula(
+                        20L,
+                        aluno,
+                        curso
+                );
+
+        Aula aula =
+                criarAula(
+                        30L,
+                        curso,
+                        "Introdução",
+                        1
+                );
+
+        ProgressoAula progresso =
+                criarProgresso(
+                        40L,
+                        matricula,
+                        aula,
+                        true
+                );
+
+        when(
+                usuarioRepository
+                        .findByEmailIgnoreCase(
+                                "aluno@email.com"
+                        )
+        ).thenReturn(
+                Optional.of(aluno)
+        );
+
+        when(
+                aulaRepository.findById(30L)
+        ).thenReturn(
+                Optional.of(aula)
+        );
+
+        when(
+                matriculaRepository
+                        .findByAlunoIdAndCursoId(
+                                1L,
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(matricula)
+        );
+
+        when(
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                20L,
+                                30L
+                        )
+        ).thenReturn(
+                Optional.of(progresso)
+        );
+
+        progressoService.removerConclusaoAula(
+                "aluno@email.com",
+                30L
+        );
+
+        assertFalse(
+                progresso.getConcluida()
+        );
+
+        verify(progressoAulaRepository)
+                .save(progresso);
+    }
+
+    @Test
+    void deveFalharQuandoConclusaoDaAulaNaoExistir() {
+        Usuario aluno =
+                criarUsuario(
+                        1L,
+                        Perfil.ALUNO
+                );
+
+        Curso curso =
+                criarCurso(
+                        10L,
+                        "Informática Básica"
+                );
+
+        Matricula matricula =
+                criarMatricula(
+                        20L,
+                        aluno,
+                        curso
+                );
+
+        Aula aula =
+                criarAula(
+                        30L,
+                        curso,
+                        "Introdução",
+                        1
+                );
+
+        when(
+                usuarioRepository
+                        .findByEmailIgnoreCase(
+                                "aluno@email.com"
+                        )
+        ).thenReturn(
+                Optional.of(aluno)
+        );
+
+        when(
+                aulaRepository.findById(30L)
+        ).thenReturn(
+                Optional.of(aula)
+        );
+
+        when(
+                matriculaRepository
+                        .findByAlunoIdAndCursoId(
+                                1L,
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(matricula)
+        );
+
+        when(
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                20L,
+                                30L
+                        )
+        ).thenReturn(
+                Optional.empty()
+        );
+
+        ResourceNotFoundException excecao =
+                assertThrows(
+                        ResourceNotFoundException.class,
+                        () ->
+                                progressoService
+                                        .removerConclusaoAula(
+                                                "aluno@email.com",
+                                                30L
+                                        )
+                );
+
+        assertEquals(
+                "Conclusão não encontrada para a aula de ID: 30",
+                excecao.getMessage()
+        );
+    }
+
     private Usuario criarUsuario(
             Long id,
             Perfil perfil) {

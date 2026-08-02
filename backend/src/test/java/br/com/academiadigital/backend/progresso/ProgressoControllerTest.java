@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -260,6 +261,72 @@ class ProgressoControllerTest {
                 .concluirAula(
                         "aluno@email.com",
                         999L
+                );
+    }
+
+    @Test
+    void deveRemoverConclusaoDaAulaDoAlunoAutenticado()
+            throws Exception {
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .principal(
+                                        () -> "aluno@email.com"
+                                )
+                )
+                .andExpect(status().isNoContent());
+
+        verify(progressoService)
+                .removerConclusaoAula(
+                        "aluno@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornarNotFoundAoRemoverConclusaoInexistente()
+            throws Exception {
+
+        org.mockito.Mockito.doThrow(
+                new ResourceNotFoundException(
+                        "Conclusão não encontrada para a aula de ID: 30"
+                )
+        ).when(progressoService)
+                .removerConclusaoAula(
+                        "aluno@email.com",
+                        30L
+                );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .principal(
+                                        () -> "aluno@email.com"
+                                )
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status")
+                        .value(404))
+                .andExpect(jsonPath("$.error")
+                        .value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value(
+                                "Conclusão não encontrada para a aula de ID: 30"
+                        ))
+                .andExpect(jsonPath("$.path")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(progressoService)
+                .removerConclusaoAula(
+                        "aluno@email.com",
+                        30L
                 );
     }
 

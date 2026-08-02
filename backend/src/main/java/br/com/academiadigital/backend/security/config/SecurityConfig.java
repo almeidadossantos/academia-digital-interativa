@@ -163,6 +163,12 @@ public class SecurityConfig {
                         .hasRole("ALUNO")
 
                         .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/progressos/aulas/*/conclusao"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/progressos/cursos/**"
                         )

@@ -187,6 +187,44 @@ public class ProgressoService {
         );
     }
 
+    @Transactional
+    public void removerConclusaoAula(
+            String email,
+            Long aulaId) {
+
+        Usuario aluno =
+                buscarAlunoAutenticado(email);
+
+        Aula aula =
+                buscarAula(aulaId);
+
+        Matricula matricula =
+                buscarMatriculaDoAluno(
+                        aluno.getId(),
+                        aula.getCurso().getId()
+                );
+
+        ProgressoAula progresso =
+                progressoAulaRepository
+                        .findByMatriculaIdAndAulaId(
+                                matricula.getId(),
+                                aulaId
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Conclusão não encontrada "
+                                                + "para a aula de ID: "
+                                                + aulaId
+                                )
+                        );
+
+        progresso.setConcluida(false);
+
+        progressoAulaRepository.save(
+                progresso
+        );
+    }
+
     private ProgressoAulaResponse obterRespostaDaAula(
             Matricula matricula,
             Aula aula,
