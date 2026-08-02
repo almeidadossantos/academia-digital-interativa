@@ -122,6 +122,11 @@ public class SecurityConfig {
                                 "PROFESSOR"
                         )
 
+                        .requestMatchers(
+                                "/api/v1/matriculas/**"
+                        )
+                        .hasRole("ADMIN")
+
                         .anyRequest()
                         .authenticated()
                 );

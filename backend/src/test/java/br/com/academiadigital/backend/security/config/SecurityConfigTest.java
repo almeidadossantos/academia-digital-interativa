@@ -49,6 +49,9 @@ import br.com.academiadigital.backend.curso.StatusCurso;
 import br.com.academiadigital.backend.curso.dto.CursoRequest;
 import br.com.academiadigital.backend.curso.dto.CursoResponse;
 import br.com.academiadigital.backend.curso.dto.CursoUpdateRequest;
+import br.com.academiadigital.backend.matricula.MatriculaController;
+import br.com.academiadigital.backend.matricula.MatriculaService;
+import br.com.academiadigital.backend.matricula.dto.MatriculaResponse;
 import br.com.academiadigital.backend.security.UsuarioDetailsService;
 import br.com.academiadigital.backend.security.auth.AuthController;
 import br.com.academiadigital.backend.security.auth.AuthService;
@@ -66,7 +69,8 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
         AuthController.class,
         UsuarioController.class,
         CursoController.class,
-        AulaController.class
+        AulaController.class,
+        MatriculaController.class
 })
 @AutoConfigureMockMvc
 @ImportAutoConfiguration({
@@ -99,6 +103,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private AulaService aulaService;
+
+    @MockitoBean
+    private MatriculaService matriculaService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -834,6 +841,92 @@ class SecurityConfigTest {
                 }
                 """;
     }
+    @Test
+    void deveRetornar401AoAcessarMatriculasSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/matriculas"));
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoAcessarMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-matriculas",
+                "aluno.matriculas@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorAcessarMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-matriculas",
+                "professor.matriculas@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void devePermitirQueAdminListeMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-matriculas",
+                "admin.matriculas@email.com",
+                "ADMIN"
+        );
+
+        when(matriculaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(Page.<MatriculaResponse>empty());
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-matriculas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
     private CursoResponse criarCursoResponse(String titulo) {
         CursoResponse response = new CursoResponse();
         response.setId(1L);
