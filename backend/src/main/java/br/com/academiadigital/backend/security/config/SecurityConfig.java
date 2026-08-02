@@ -158,6 +158,12 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.GET,
+                                "/api/v1/progressos/cursos/**"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
                                 "/api/v1/matriculas/minhas"
                         )
                         .hasRole("ALUNO")

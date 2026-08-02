@@ -54,6 +54,9 @@ import br.com.academiadigital.backend.curso.dto.CursoUpdateRequest;
 import br.com.academiadigital.backend.matricula.MatriculaController;
 import br.com.academiadigital.backend.matricula.MatriculaService;
 import br.com.academiadigital.backend.matricula.dto.MatriculaResponse;
+import br.com.academiadigital.backend.progresso.ProgressoController;
+import br.com.academiadigital.backend.progresso.ProgressoService;
+import br.com.academiadigital.backend.progresso.dto.ProgressoCursoResponse;
 import br.com.academiadigital.backend.trilha.TrilhaController;
 import br.com.academiadigital.backend.trilha.TrilhaService;
 import br.com.academiadigital.backend.trilha.dto.TrilhaRequest;
@@ -77,6 +80,7 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
         CursoController.class,
         AulaController.class,
         MatriculaController.class,
+        ProgressoController.class,
         TrilhaController.class
 })
 @AutoConfigureMockMvc
@@ -113,6 +117,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private MatriculaService matriculaService;
+
+    @MockitoBean
+    private ProgressoService progressoService;
 
     @MockitoBean
     private TrilhaService trilhaService;
@@ -1282,6 +1289,121 @@ class SecurityConfigTest {
                 isNull(),
                 isNull(),
                 isNull(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar401AoAcessarProgressoSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/cursos/10"
+                        ));
+    }
+
+    @Test
+    void devePermitirQueAlunoConsulteProgressoDoCurso()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-progresso",
+                "aluno.progresso@email.com",
+                "ALUNO"
+        );
+
+        ProgressoCursoResponse response =
+                new ProgressoCursoResponse();
+
+        response.setMatriculaId(20L);
+        response.setCursoId(10L);
+        response.setCursoTitulo("Informática Básica");
+        response.setTotalAulas(2);
+        response.setAulasConcluidas(1);
+        response.setPercentualConclusao(50.0);
+
+        when(progressoService.buscarProgressoCurso(
+                "aluno.progresso@email.com",
+                10L
+        )).thenReturn(response);
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-progresso"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matriculaId")
+                        .value(20))
+                .andExpect(jsonPath("$.cursoId")
+                        .value(10))
+                .andExpect(jsonPath("$.cursoTitulo")
+                        .value("Informática Básica"))
+                .andExpect(jsonPath("$.totalAulas")
+                        .value(2))
+                .andExpect(jsonPath("$.aulasConcluidas")
+                        .value(1))
+                .andExpect(jsonPath("$.percentualConclusao")
+                        .value(50.0));
+
+        verify(progressoService)
+                .buscarProgressoCurso(
+                        "aluno.progresso@email.com",
+                        10L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorConsultarProgresso()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-progresso",
+                "professor.progresso@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-progresso"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"));
+
+        verify(
+                progressoService,
+                never()
+        ).buscarProgressoCurso(
+                any(),
                 any()
         );
     }
