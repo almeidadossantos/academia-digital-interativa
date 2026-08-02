@@ -323,6 +323,122 @@ class MatriculaServiceTest {
     }
 
     @Test
+    void deveListarMinhasMatriculas() {
+        Usuario aluno = criarAluno(
+                1L,
+                Perfil.ALUNO,
+                true
+        );
+
+        Curso curso = criarCurso(2L);
+
+        Matricula matricula =
+                criarMatricula(aluno, curso);
+
+        MatriculaResponse response =
+                criarResponse(StatusMatricula.ATIVA);
+
+        Page<Matricula> pagina =
+                new PageImpl<>(List.of(matricula));
+
+        when(usuarioRepository.findByEmailIgnoreCase(
+                "joao@email.com"
+        )).thenReturn(Optional.of(aluno));
+
+        when(matriculaRepository.findAll(
+                ArgumentMatchers
+                        .<Specification<Matricula>>any(),
+                same(pageable)
+        )).thenReturn(pagina);
+
+        when(matriculaMapper.toResponse(matricula))
+                .thenReturn(response);
+
+        Page<MatriculaResponse> resultado =
+                matriculaService.listarMinhas(
+                        "joao@email.com",
+                        pageable
+                );
+
+        assertEquals(1, resultado.getTotalElements());
+        assertSame(
+                response,
+                resultado.getContent().get(0)
+        );
+
+        verify(usuarioRepository)
+                .findByEmailIgnoreCase(
+                        "joao@email.com"
+                );
+
+        verify(matriculaRepository).findAll(
+                ArgumentMatchers
+                        .<Specification<Matricula>>any(),
+                same(pageable)
+        );
+    }
+
+    @Test
+    void deveLancarExcecaoQuandoAlunoAutenticadoNaoExistir() {
+        when(usuarioRepository.findByEmailIgnoreCase(
+                "inexistente@email.com"
+        )).thenReturn(Optional.empty());
+
+        ResourceNotFoundException excecao =
+                assertThrows(
+                        ResourceNotFoundException.class,
+                        () -> matriculaService.listarMinhas(
+                                "inexistente@email.com",
+                                pageable
+                        )
+                );
+
+        assertEquals(
+                "Aluno autenticado não encontrado.",
+                excecao.getMessage()
+        );
+
+        verifyNoInteractions(
+                matriculaRepository,
+                cursoRepository,
+                matriculaMapper
+        );
+    }
+
+    @Test
+    void deveRejeitarListagemQuandoUsuarioNaoForAluno() {
+        Usuario professor = criarAluno(
+                1L,
+                Perfil.PROFESSOR,
+                true
+        );
+
+        when(usuarioRepository.findByEmailIgnoreCase(
+                "professor@email.com"
+        )).thenReturn(Optional.of(professor));
+
+        IllegalArgumentException excecao =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> matriculaService.listarMinhas(
+                                "professor@email.com",
+                                pageable
+                        )
+                );
+
+        assertEquals(
+                "O usuário autenticado não possui o perfil ALUNO.",
+                excecao.getMessage()
+        );
+
+        verifyNoInteractions(
+                matriculaRepository,
+                cursoRepository,
+                matriculaMapper
+        );
+    }
+
+    @Test
     void deveBuscarMatriculaPorId() {
         Matricula matricula = criarMatricula(
                 criarAluno(

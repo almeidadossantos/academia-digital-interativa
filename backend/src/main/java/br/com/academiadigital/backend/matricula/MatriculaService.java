@@ -90,6 +90,37 @@ public class MatriculaService {
     }
 
     @Transactional(readOnly = true)
+    public Page<MatriculaResponse> listarMinhas(
+            String email,
+            Pageable pageable) {
+
+        Usuario aluno = usuarioRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Aluno autenticado não encontrado."
+                        )
+                );
+
+        if (aluno.getPerfil() != Perfil.ALUNO) {
+            throw new IllegalArgumentException(
+                    "O usuário autenticado não possui o perfil ALUNO."
+            );
+        }
+
+        Specification<Matricula> filtros =
+                MatriculaSpecification.comFiltros(
+                        aluno.getId(),
+                        null,
+                        null
+                );
+
+        return matriculaRepository
+                .findAll(filtros, pageable)
+                .map(matriculaMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public MatriculaResponse buscarPorId(Long id) {
         return matriculaMapper.toResponse(
                 buscarMatriculaPorId(id)

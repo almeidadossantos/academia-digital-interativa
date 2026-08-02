@@ -1138,6 +1138,154 @@ class SecurityConfigTest {
         );
     }
 
+    @Test
+    void deveRetornar401AoAcessarMinhasMatriculasSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/matriculas/minhas"));
+    }
+
+    @Test
+    void devePermitirQueAlunoListeSuasMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-minhas-matriculas",
+                "aluno.matriculas@email.com",
+                "ALUNO"
+        );
+
+        when(matriculaService.listarMinhas(
+                eq("aluno.matriculas@email.com"),
+                any()
+        )).thenReturn(
+                Page.<MatriculaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-minhas-matriculas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(matriculaService).listarMinhas(
+                eq("aluno.matriculas@email.com"),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorAcessarMinhasMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-minhas-matriculas",
+                "professor.matriculas@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-minhas-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                matriculaService,
+                never()
+        ).listarMinhas(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoListarTodasAsMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-todas-matriculas",
+                "aluno.todas.matriculas@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-todas-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                matriculaService,
+                never()
+        ).listarTodos(
+                any(),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAdminListeTodasAsMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-todas-matriculas",
+                "admin.matriculas@email.com",
+                "ADMIN"
+        );
+
+        when(matriculaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<MatriculaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-todas-matriculas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(matriculaService).listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        );
+    }
+
     private CursoResponse criarCursoResponse(String titulo) {
         CursoResponse response = new CursoResponse();
         response.setId(1L);

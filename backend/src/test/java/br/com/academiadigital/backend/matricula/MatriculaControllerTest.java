@@ -161,6 +161,55 @@ class MatriculaControllerTest {
     }
 
     @Test
+    void deveListarMinhasMatriculasDoAlunoAutenticado()
+            throws Exception {
+
+        MatriculaResponse matricula = criarResponse(
+                10L,
+                StatusMatricula.ATIVA
+        );
+
+        Page<MatriculaResponse> pagina = new PageImpl<>(
+                List.of(matricula),
+                PageRequest.of(0, 10),
+                1
+        );
+
+        when(matriculaService.listarMinhas(
+                eq("joao@email.com"),
+                any()
+        )).thenReturn(pagina);
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                                .principal(
+                                        () -> "joao@email.com"
+                                )
+                                .param("page", "0")
+                                .param("size", "10")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()")
+                        .value(1))
+                .andExpect(jsonPath("$.content[0].id")
+                        .value(10))
+                .andExpect(jsonPath("$.content[0].alunoId")
+                        .value(1))
+                .andExpect(jsonPath("$.content[0].alunoEmail")
+                        .value("joao@email.com"))
+                .andExpect(jsonPath("$.content[0].status")
+                        .value("ATIVA"))
+                .andExpect(jsonPath("$.totalElements")
+                        .value(1));
+
+        verify(matriculaService).listarMinhas(
+                eq("joao@email.com"),
+                any()
+        );
+    }
+
+    @Test
     void deveBuscarMatriculaPorId() throws Exception {
         MatriculaResponse response = criarResponse(
                 10L,
