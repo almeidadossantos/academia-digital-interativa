@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,6 +54,10 @@ import br.com.academiadigital.backend.curso.dto.CursoUpdateRequest;
 import br.com.academiadigital.backend.matricula.MatriculaController;
 import br.com.academiadigital.backend.matricula.MatriculaService;
 import br.com.academiadigital.backend.matricula.dto.MatriculaResponse;
+import br.com.academiadigital.backend.trilha.TrilhaController;
+import br.com.academiadigital.backend.trilha.TrilhaService;
+import br.com.academiadigital.backend.trilha.dto.TrilhaRequest;
+import br.com.academiadigital.backend.trilha.dto.TrilhaResponse;
 import br.com.academiadigital.backend.security.UsuarioDetailsService;
 import br.com.academiadigital.backend.security.auth.AuthController;
 import br.com.academiadigital.backend.security.auth.AuthService;
@@ -70,7 +76,8 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
         UsuarioController.class,
         CursoController.class,
         AulaController.class,
-        MatriculaController.class
+        MatriculaController.class,
+        TrilhaController.class
 })
 @AutoConfigureMockMvc
 @ImportAutoConfiguration({
@@ -106,6 +113,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private MatriculaService matriculaService;
+
+    @MockitoBean
+    private TrilhaService trilhaService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -925,6 +935,207 @@ class SecurityConfigTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void deveRetornar401AoAcessarTrilhasSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/trilhas")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/trilhas"));
+    }
+
+    @Test
+    void devePermitirQueAlunoListeTrilhas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-trilhas",
+                "aluno.trilhas@email.com",
+                "ALUNO"
+        );
+
+        when(trilhaService.listarTodos(
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<TrilhaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/trilhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-trilhas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+    }
+
+    @Test
+    void devePermitirQueProfessorListeTrilhas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-trilhas",
+                "professor.trilhas@email.com",
+                "PROFESSOR"
+        );
+
+        when(trilhaService.listarTodos(
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<TrilhaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/trilhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-trilhas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoTentarCriarTrilha()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-criar-trilha",
+                "aluno.criar.trilha@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/trilhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-criar-trilha"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                          "titulo": "Formação em Java",
+                                          "descricao": "Trilha de Java.",
+                                          "status": "RASCUNHO"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                trilhaService,
+                never()
+        ).criar(any(TrilhaRequest.class));
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorTentarCriarTrilha()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-criar-trilha",
+                "professor.criar.trilha@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/trilhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-criar-trilha"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                          "titulo": "Formação em Java",
+                                          "descricao": "Trilha de Java.",
+                                          "status": "RASCUNHO"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                trilhaService,
+                never()
+        ).criar(any(TrilhaRequest.class));
+    }
+
+    @Test
+    void devePermitirQueAdminCrieTrilha()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-criar-trilha",
+                "admin.criar.trilha@email.com",
+                "ADMIN"
+        );
+
+        TrilhaResponse response =
+                new TrilhaResponse();
+
+        response.setId(1L);
+        response.setTitulo(
+                "Formação em Java"
+        );
+        response.setDescricao(
+                "Trilha de Java."
+        );
+
+        when(trilhaService.criar(
+                any(TrilhaRequest.class)
+        )).thenReturn(response);
+
+        mockMvc.perform(
+                        post("/api/v1/trilhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-criar-trilha"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                          "titulo": "Formação em Java",
+                                          "descricao": "Trilha de Java.",
+                                          "status": "RASCUNHO"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id")
+                        .value(1))
+                .andExpect(jsonPath("$.titulo")
+                        .value("Formação em Java"));
+
+        verify(trilhaService).criar(
+                any(TrilhaRequest.class)
+        );
     }
 
     private CursoResponse criarCursoResponse(String titulo) {
