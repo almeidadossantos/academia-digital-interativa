@@ -157,6 +157,30 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
                         .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/progressos/aulas/*/concluir"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/progressos/aulas/*/conclusao"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/progressos/cursos/**"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/matriculas/minhas"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
                                 "/api/v1/matriculas/**"
                         )
                         .hasRole("ADMIN")

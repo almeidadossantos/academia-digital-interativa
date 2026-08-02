@@ -1,6 +1,7 @@
 package br.com.academiadigital.backend.matricula;
 
 import java.net.URI;
+import java.security.Principal;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -77,6 +78,26 @@ public class MatriculaController {
                         alunoId,
                         cursoId,
                         status,
+                        pageable
+                );
+
+        return ResponseEntity.ok(pagina);
+    }
+
+    @GetMapping("/minhas")
+    public ResponseEntity<Page<MatriculaResponse>> listarMinhas(
+            Principal principal,
+
+            @PageableDefault(
+                    size = 10,
+                    sort = "dataMatricula",
+                    direction = Sort.Direction.DESC
+            )
+            Pageable pageable) {
+
+        Page<MatriculaResponse> pagina =
+                matriculaService.listarMinhas(
+                        principal.getName(),
                         pageable
                 );
 

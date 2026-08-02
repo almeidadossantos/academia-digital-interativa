@@ -54,6 +54,10 @@ import br.com.academiadigital.backend.curso.dto.CursoUpdateRequest;
 import br.com.academiadigital.backend.matricula.MatriculaController;
 import br.com.academiadigital.backend.matricula.MatriculaService;
 import br.com.academiadigital.backend.matricula.dto.MatriculaResponse;
+import br.com.academiadigital.backend.progresso.ProgressoController;
+import br.com.academiadigital.backend.progresso.ProgressoService;
+import br.com.academiadigital.backend.progresso.dto.ProgressoAulaResponse;
+import br.com.academiadigital.backend.progresso.dto.ProgressoCursoResponse;
 import br.com.academiadigital.backend.trilha.TrilhaController;
 import br.com.academiadigital.backend.trilha.TrilhaService;
 import br.com.academiadigital.backend.trilha.dto.TrilhaRequest;
@@ -77,6 +81,7 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
         CursoController.class,
         AulaController.class,
         MatriculaController.class,
+        ProgressoController.class,
         TrilhaController.class
 })
 @AutoConfigureMockMvc
@@ -113,6 +118,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private MatriculaService matriculaService;
+
+    @MockitoBean
+    private ProgressoService progressoService;
 
     @MockitoBean
     private TrilhaService trilhaService;
@@ -1135,6 +1143,573 @@ class SecurityConfigTest {
 
         verify(trilhaService).criar(
                 any(TrilhaRequest.class)
+        );
+    }
+
+    @Test
+    void deveRetornar401AoAcessarMinhasMatriculasSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/matriculas/minhas"));
+    }
+
+    @Test
+    void devePermitirQueAlunoListeSuasMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-minhas-matriculas",
+                "aluno.matriculas@email.com",
+                "ALUNO"
+        );
+
+        when(matriculaService.listarMinhas(
+                eq("aluno.matriculas@email.com"),
+                any()
+        )).thenReturn(
+                Page.<MatriculaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-minhas-matriculas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(matriculaService).listarMinhas(
+                eq("aluno.matriculas@email.com"),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorAcessarMinhasMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-minhas-matriculas",
+                "professor.matriculas@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas/minhas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-minhas-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                matriculaService,
+                never()
+        ).listarMinhas(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoListarTodasAsMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-todas-matriculas",
+                "aluno.todas.matriculas@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-todas-matriculas"
+                                )
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                matriculaService,
+                never()
+        ).listarTodos(
+                any(),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAdminListeTodasAsMatriculas()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-todas-matriculas",
+                "admin.matriculas@email.com",
+                "ADMIN"
+        );
+
+        when(matriculaService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<MatriculaResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/matriculas")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-todas-matriculas"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(matriculaService).listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar401AoAcessarProgressoSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/cursos/10"
+                        ));
+    }
+
+    @Test
+    void devePermitirQueAlunoConsulteProgressoDoCurso()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-progresso",
+                "aluno.progresso@email.com",
+                "ALUNO"
+        );
+
+        ProgressoCursoResponse response =
+                new ProgressoCursoResponse();
+
+        response.setMatriculaId(20L);
+        response.setCursoId(10L);
+        response.setCursoTitulo("Informática Básica");
+        response.setTotalAulas(2);
+        response.setAulasConcluidas(1);
+        response.setPercentualConclusao(50.0);
+
+        when(progressoService.buscarProgressoCurso(
+                "aluno.progresso@email.com",
+                10L
+        )).thenReturn(response);
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-progresso"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matriculaId")
+                        .value(20))
+                .andExpect(jsonPath("$.cursoId")
+                        .value(10))
+                .andExpect(jsonPath("$.cursoTitulo")
+                        .value("Informática Básica"))
+                .andExpect(jsonPath("$.totalAulas")
+                        .value(2))
+                .andExpect(jsonPath("$.aulasConcluidas")
+                        .value(1))
+                .andExpect(jsonPath("$.percentualConclusao")
+                        .value(50.0));
+
+        verify(progressoService)
+                .buscarProgressoCurso(
+                        "aluno.progresso@email.com",
+                        10L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorConsultarProgresso()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-progresso",
+                "professor.progresso@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        get(
+                                "/api/v1/progressos/cursos/{cursoId}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-progresso"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"));
+
+        verify(
+                progressoService,
+                never()
+        ).buscarProgressoCurso(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar401AoConcluirAulaSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAlunoConcluaAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-concluir-aula",
+                "aluno.conclusao@email.com",
+                "ALUNO"
+        );
+
+        ProgressoAulaResponse response =
+                new ProgressoAulaResponse();
+
+        response.setId(40L);
+        response.setMatriculaId(20L);
+        response.setCursoId(10L);
+        response.setAulaId(30L);
+        response.setConcluida(true);
+
+        when(
+                progressoService.concluirAula(
+                        "aluno.conclusao@email.com",
+                        30L
+                )
+        ).thenReturn(response);
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-concluir-aula"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(40))
+                .andExpect(jsonPath("$.matriculaId")
+                        .value(20))
+                .andExpect(jsonPath("$.cursoId")
+                        .value(10))
+                .andExpect(jsonPath("$.aulaId")
+                        .value(30))
+                .andExpect(jsonPath("$.concluida")
+                        .value(true));
+
+        verify(progressoService)
+                .concluirAula(
+                        "aluno.conclusao@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorTentarConcluirAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-concluir-aula",
+                "professor.conclusao@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-concluir-aula"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAdminTentarConcluirAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-concluir-aula",
+                "admin.conclusao@email.com",
+                "ADMIN"
+        );
+
+        mockMvc.perform(
+                        post(
+                                "/api/v1/progressos/aulas/{aulaId}/concluir",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-concluir-aula"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/concluir"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).concluirAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar401AoRemoverConclusaoSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAlunoRemovaConclusaoDaAula()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-remover-conclusao",
+                "aluno.remocao@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isNoContent());
+
+        verify(progressoService)
+                .removerConclusaoAula(
+                        "aluno.remocao@email.com",
+                        30L
+                );
+    }
+
+    @Test
+    void deveRetornar403QuandoProfessorTentarRemoverConclusao()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-remover-conclusao",
+                "professor.remocao@email.com",
+                "PROFESSOR"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAdminTentarRemoverConclusao()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-remover-conclusao",
+                "admin.remocao@email.com",
+                "ADMIN"
+        );
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/progressos/aulas/{aulaId}/conclusao",
+                                30L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-remover-conclusao"
+                                )
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value(
+                                "/api/v1/progressos/aulas/30/conclusao"
+                        ));
+
+        verify(
+                progressoService,
+                never()
+        ).removerConclusaoAula(
+                any(),
+                any()
         );
     }
 
