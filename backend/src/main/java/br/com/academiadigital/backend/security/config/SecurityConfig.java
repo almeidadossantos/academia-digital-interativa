@@ -195,6 +195,15 @@ public class SecurityConfig {
                                 "ADMIN",
                                 "PROFESSOR"
                         )
+
+                        .requestMatchers(
+                                "/api/v1/alternativas/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/trilhas/**"
