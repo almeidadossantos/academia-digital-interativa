@@ -205,6 +205,58 @@ public class SecurityConfig {
                         )
 
                         .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/tentativas-avaliacao/avaliacoes/*/iniciar"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/v1/tentativas-avaliacao/*/respostas/*"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/tentativas-avaliacao/*/finalizar"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/tentativas-avaliacao/*/respostas/*/correcao"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/tentativas-avaliacao/minhas"
+                        )
+                        .hasRole("ALUNO")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/tentativas-avaliacao"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/tentativas-avaliacao/*"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR",
+                                "ALUNO"
+                        )
+
+                        .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/trilhas/**"
                         )
