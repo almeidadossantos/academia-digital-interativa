@@ -46,6 +46,12 @@ import br.com.academiadigital.backend.aula.dto.AulaResponse;
 import br.com.academiadigital.backend.aula.dto.AulaUpdateRequest;
 import br.com.academiadigital.backend.avaliacao.AvaliacaoController;
 import br.com.academiadigital.backend.avaliacao.AvaliacaoService;
+import br.com.academiadigital.backend.avaliacao.QuestaoController;
+import br.com.academiadigital.backend.avaliacao.QuestaoService;
+import br.com.academiadigital.backend.avaliacao.TipoQuestao;
+import br.com.academiadigital.backend.avaliacao.dto.QuestaoRequest;
+import br.com.academiadigital.backend.avaliacao.dto.QuestaoResponse;
+import br.com.academiadigital.backend.avaliacao.dto.QuestaoUpdateRequest;
 import br.com.academiadigital.backend.avaliacao.StatusAvaliacao;
 import br.com.academiadigital.backend.avaliacao.dto.AvaliacaoRequest;
 import br.com.academiadigital.backend.avaliacao.dto.AvaliacaoResponse;
@@ -87,6 +93,7 @@ import br.com.academiadigital.backend.usuario.dto.UsuarioResponse;
         CursoController.class,
         AulaController.class,
         AvaliacaoController.class,
+        QuestaoController.class,
         MatriculaController.class,
         ProgressoController.class,
         TrilhaController.class
@@ -125,6 +132,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private AvaliacaoService avaliacaoService;
+
+    @MockitoBean
+    private QuestaoService questaoService;
 
     @MockitoBean
     private MatriculaService matriculaService;
@@ -2170,6 +2180,457 @@ class SecurityConfigTest {
         response.setStatus(
                 StatusAvaliacao.PUBLICADA
         );
+
+        return response;
+    }
+
+    @Test
+    void deveRetornar401AoAcessarQuestoesSemAutenticacao()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/questoes")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON
+                ))
+                .andExpect(jsonPath("$.status")
+                        .value(401))
+                .andExpect(jsonPath("$.erro")
+                        .value("Não autorizado"))
+                .andExpect(jsonPath("$.caminho")
+                        .value("/api/v1/questoes"));
+
+        verify(
+                questaoService,
+                never()
+        ).listarTodos(
+                any(),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAlunoListeQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-questoes",
+                "aluno.questoes@email.com",
+                "ALUNO"
+        );
+
+        when(questaoService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<QuestaoResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-questoes"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(questaoService).listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueProfessorListeQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-questoes",
+                "professor.questoes@email.com",
+                "PROFESSOR"
+        );
+
+        when(questaoService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<QuestaoResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-questoes"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(questaoService).listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        );
+    }
+
+    @Test
+    void devePermitirQueAdminListeQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-questoes",
+                "admin.questoes@email.com",
+                "ADMIN"
+        );
+
+        when(questaoService.listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        )).thenReturn(
+                Page.<QuestaoResponse>empty()
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-questoes"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content")
+                        .isArray());
+
+        verify(questaoService).listarTodos(
+                isNull(),
+                isNull(),
+                isNull(),
+                any()
+        );
+    }
+
+    @Test
+    void deveRetornar403QuandoAlunoTentarAlterarQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-aluno-alteracao-questoes",
+                "aluno.alteracao.questoes@email.com",
+                "ALUNO"
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status")
+                        .value(403))
+                .andExpect(jsonPath("$.erro")
+                        .value("Acesso negado"));
+
+        mockMvc.perform(
+                        put(
+                                "/api/v1/questoes/{id}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/questoes/{id}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-aluno-alteracao-questoes"
+                                )
+                )
+                .andExpect(status().isForbidden());
+
+        verify(
+                questaoService,
+                never()
+        ).criar(any(QuestaoRequest.class));
+
+        verify(
+                questaoService,
+                never()
+        ).atualizar(
+                any(),
+                any(QuestaoUpdateRequest.class)
+        );
+
+        verify(
+                questaoService,
+                never()
+        ).excluir(any());
+    }
+
+    @Test
+    void devePermitirQueProfessorGerencieQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-professor-gerencia-questoes",
+                "professor.gerencia.questoes@email.com",
+                "PROFESSOR"
+        );
+
+        QuestaoResponse questaoCriada =
+                criarQuestaoResponse(
+                        10L,
+                        "Qual componente executa as instruções?",
+                        1
+                );
+
+        QuestaoResponse questaoAtualizada =
+                criarQuestaoResponse(
+                        10L,
+                        "Qual componente processa os dados?",
+                        2
+                );
+
+        when(questaoService.criar(
+                any(QuestaoRequest.class)
+        )).thenReturn(questaoCriada);
+
+        when(questaoService.atualizar(
+                eq(10L),
+                any(QuestaoUpdateRequest.class)
+        )).thenReturn(questaoAtualizada);
+
+        doNothing()
+                .when(questaoService)
+                .excluir(10L);
+
+        mockMvc.perform(
+                        post("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id")
+                        .value(10))
+                .andExpect(jsonPath("$.enunciado")
+                        .value(
+                                "Qual componente executa as instruções?"
+                        ));
+
+        mockMvc.perform(
+                        put(
+                                "/api/v1/questoes/{id}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enunciado")
+                        .value(
+                                "Qual componente processa os dados?"
+                        ));
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/questoes/{id}",
+                                10L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-professor-gerencia-questoes"
+                                )
+                )
+                .andExpect(status().isNoContent());
+
+        verify(questaoService).criar(
+                any(QuestaoRequest.class)
+        );
+
+        verify(questaoService).atualizar(
+                eq(10L),
+                any(QuestaoUpdateRequest.class)
+        );
+
+        verify(questaoService).excluir(10L);
+    }
+
+    @Test
+    void devePermitirQueAdminGerencieQuestoes()
+            throws Exception {
+
+        configurarTokenValido(
+                "token-admin-gerencia-questoes",
+                "admin.gerencia.questoes@email.com",
+                "ADMIN"
+        );
+
+        QuestaoResponse questaoCriada =
+                criarQuestaoResponse(
+                        11L,
+                        "O processador executa instruções?",
+                        1
+                );
+
+        QuestaoResponse questaoAtualizada =
+                criarQuestaoResponse(
+                        11L,
+                        "O processador interpreta instruções?",
+                        2
+                );
+
+        when(questaoService.criar(
+                any(QuestaoRequest.class)
+        )).thenReturn(questaoCriada);
+
+        when(questaoService.atualizar(
+                eq(11L),
+                any(QuestaoUpdateRequest.class)
+        )).thenReturn(questaoAtualizada);
+
+        doNothing()
+                .when(questaoService)
+                .excluir(11L);
+
+        mockMvc.perform(
+                        post("/api/v1/questoes")
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id")
+                        .value(11))
+                .andExpect(jsonPath("$.enunciado")
+                        .value(
+                                "O processador executa instruções?"
+                        ));
+
+        mockMvc.perform(
+                        put(
+                                "/api/v1/questoes/{id}",
+                                11L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-questoes"
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(jsonQuestaoValida())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enunciado")
+                        .value(
+                                "O processador interpreta instruções?"
+                        ));
+
+        mockMvc.perform(
+                        delete(
+                                "/api/v1/questoes/{id}",
+                                11L
+                        )
+                                .header(
+                                        "Authorization",
+                                        "Bearer token-admin-gerencia-questoes"
+                                )
+                )
+                .andExpect(status().isNoContent());
+
+        verify(questaoService).criar(
+                any(QuestaoRequest.class)
+        );
+
+        verify(questaoService).atualizar(
+                eq(11L),
+                any(QuestaoUpdateRequest.class)
+        );
+
+        verify(questaoService).excluir(11L);
+    }
+
+    private String jsonQuestaoValida() {
+        return """
+                {
+                  "avaliacaoId": 1,
+                  "enunciado": "Qual componente executa as instruções?",
+                  "tipo": "MULTIPLA_ESCOLHA",
+                  "ordem": 1,
+                  "pontuacao": 2.50
+                }
+                """;
+    }
+
+    private QuestaoResponse criarQuestaoResponse(
+            Long id,
+            String enunciado,
+            Integer ordem) {
+
+        QuestaoResponse response =
+                new QuestaoResponse();
+
+        response.setId(id);
+        response.setAvaliacaoId(1L);
+        response.setAvaliacaoTitulo(
+                "Avaliação inicial"
+        );
+        response.setEnunciado(enunciado);
+        response.setTipo(
+                TipoQuestao.MULTIPLA_ESCOLHA
+        );
+        response.setOrdem(ordem);
 
         return response;
     }
