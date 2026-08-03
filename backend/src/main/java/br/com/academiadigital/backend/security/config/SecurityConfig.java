@@ -124,6 +124,43 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.GET,
+                                "/api/v1/avaliacoes/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR",
+                                "ALUNO"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/avaliacoes/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/v1/avaliacoes/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/avaliacoes/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "PROFESSOR"
+                        )
+
+                        .requestMatchers(
+                                HttpMethod.GET,
                                 "/api/v1/trilhas/**"
                         )
                         .hasAnyRole(
